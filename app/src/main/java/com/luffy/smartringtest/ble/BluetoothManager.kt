@@ -59,6 +59,11 @@ import com.veepoo.protocol.model.enums.HrvDetectState
 import com.inuker.bluetooth.library.connect.response.BleWriteResponse
 import com.veepoo.protocol.listener.data.ITemptureDetectDataListener
 import com.veepoo.protocol.model.datas.TemptureDetectData
+import com.veepoo.protocol.listener.data.IECGDetectListener
+import com.veepoo.protocol.model.datas.EcgDetectInfo
+import com.veepoo.protocol.model.datas.EcgDetectState
+import com.veepoo.protocol.model.datas.EcgDetectResult
+import com.veepoo.protocol.model.datas.EcgDiagnosis
 
 class BluetoothManager(context: Context) {
 
@@ -368,13 +373,18 @@ class BluetoothManager(context: Context) {
     }
 
     /** Reads last night's sleep summary (days back = 1). onResult fires on complete. */
-    fun readSleep(onResult: (success: Boolean, minutes: Int, message: String) -> Unit) {
+    /**
+     * Reads last night's sleep summary (days back = 1).
+     * onResult fires once when reading is complete.
+     */
+    fun readSleep(onResult: (success: Boolean, summary: String, message: String) -> Unit) {
+        var lastSleepData: SleepData? = null
         var delivered = false
 
-        fun deliver(success: Boolean, minutes: Int, msg: String) {
+        fun deliver(success: Boolean, summary: String, msg: String) {
             if (delivered) return
             delivered = true
-            onResult(success, minutes, msg)
+            onResult(success, summary, msg)
         }
 
         try {
@@ -385,6 +395,7 @@ class BluetoothManager(context: Context) {
                 object : ISleepDataListener {
                     override fun onSleepDataChange(day: String?, data: SleepData?) {
                         if (data == null) return
+                        lastSleepData = data
                         Log.d(TAG, "Sleep day=$day, data=$data")
                     }
 
@@ -398,16 +409,46 @@ class BluetoothManager(context: Context) {
 
                     override fun onReadSleepComplete() {
                         Log.d(TAG, "Sleep read complete")
-                        // We don't have the last SleepData here — see note below
-                        deliver(true, 0, "Sleep read complete (no summary)")
+
+                        val data = lastSleepData
+                        if (data == null) {
+                            deliver(false, "", "No sleep data found")
+                            return
+                        }
+
+                        val summary = buildSleepSummary(data)
+                        Log.d(TAG, "Sleep summary: $summary")
+                        deliver(true, summary, "😴 $summary")
                     }
                 },
-                1  // read 1 day back
+                1
             )
         } catch (e: Exception) {
             Log.e(TAG, "readSleep failed", e)
-            deliver(false, -1, "Exception: ${e.message}")
+            deliver(false, "", "Exception: ${e.message}")
         }
+    }
+
+    /** Formats the SleepData object into a readable summary. */
+    private fun buildSleepSummary(data: SleepData): String {
+        val total = formatMinutes(data.allSleepTime)
+        val deep = formatMinutes(data.deepSleepTime)
+        val light = formatMinutes(data.lowSleepTime)
+        val quality = data.sleepQulity
+
+        // Optional: sleep/wake times
+        val downTime = data.sleepDown?.clock ?: "?"
+        val upTime = data.sleepUp?.clock ?: "?"
+
+        return "Slept $total (deep $deep, light $light) • Quality $quality • $downTime→$upTime"
+    }
+
+    /** Converts a minutes count into "Xh Ym" format. */
+    private fun formatMinutes(mins: Int): String {
+        if (mins <= 0) return "0m"
+        val h = mins / 60
+        val m = mins % 60
+        return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 
     /**
@@ -679,7 +720,7 @@ class BluetoothManager(context: Context) {
     }
 
     /** Triggers an HRV measurement. onResult fires once. */
-    fun readHrv(onResult: (success: Boolean, hrv: Int, message: String) -> Unit) {
+    /*fun readHrv(onResult: (success: Boolean, hrv: Int, message: String) -> Unit) {
         Log.d(TAG, "=== readHrv() called ===")
         try {
             VPOperateManager.getInstance().startDetectHrv(
@@ -706,10 +747,10 @@ class BluetoothManager(context: Context) {
             Log.e(TAG, "readHrv failed", e)
             onResult(false, -1, "Exception: ${e.message}")
         }
-    }
+    }*/
 
     /** Triggers a fatigue measurement. onResult fires once. */
-    fun readFatigue(onResult: (success: Boolean, level: Int, message: String) -> Unit) {
+    /*fun readFatigue(onResult: (success: Boolean, level: Int, message: String) -> Unit) {
         Log.d(TAG, "=== readFatigue() called ===")
         try {
             VPOperateManager.getInstance().startDetectFatigue(
@@ -741,7 +782,83 @@ class BluetoothManager(context: Context) {
             Log.e(TAG, "readFatigue failed", e)
             onResult(false, -1, "Exception: ${e.message}")
         }
+    }*/
+    /**
+     * Starts an ECG measurement.
+     * Multiple callbacks fire over ~30-60 seconds.
+     * Call [stopEcg] to cancel early.
+     */
+    /**
+     * Starts an ECG measurement. Multiple callbacks fire over ~30-60 seconds.
+     * Call [stopEcg] to cancel early.
+     */
+    fun readEcg(
+        onInfo: (EcgDetectInfo) -> Unit,
+        onState: (EcgDetectState) -> Unit,
+        onAdc: (ch1: IntArray, ch2: IntArray) -> Unit,
+        onResult: (EcgDetectResult) -> Unit,
+        onDiagnosis: (EcgDiagnosis) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        Log.d(TAG, "=== readEcg() called ===")
+        try {
+            VPOperateManager.getInstance().startDetectECG(
+                BleWriteResponse { code ->
+                    Log.d(TAG, ">>> startDetectECG WRITE response: code=$code")
+                },
+                true,   //← changed to enable ADC stream
+                object : IECGDetectListener {
+                    override fun onEcgDetectInfoChange(info: EcgDetectInfo?) {
+                        Log.d(TAG, ">>> ECG Info: $info")
+                        if (info != null) onInfo(info)
+                    }
+                    override fun onEcgDetectStateChange(state: EcgDetectState?) {
+                        Log.d(TAG, ">>> ECG State: $state")
+                        if (state != null) onState(state)
+                    }
+                    override fun onEcgDetectResultChange(result: EcgDetectResult?) {
+                        Log.d(TAG, ">>> ECG Result: $result")
+                        if (result != null) onResult(result)
+                    }
+                    override fun onEcgDetectDiagnosisChange(diagnosis: EcgDiagnosis?) {
+                        Log.d(TAG, ">>> ECG Diagnosis: $diagnosis")
+                        if (diagnosis != null) onDiagnosis(diagnosis)
+                    }
+                    override fun onEcgADCChange(adc1: IntArray?, adc2: IntArray?) {
+                        if (adc1 != null && adc2 != null) {
+                            Log.d(TAG, ">>> ECG ADC: ch1=${adc1.size} ch2=${adc2.size}")
+                            onAdc(adc1, adc2)
+                        }
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "readEcg failed", e)
+            onError("Exception: ${e.message}")
+        }
     }
+
+    /** Stops an in-progress ECG measurement. */
+    fun stopEcg() {
+        try {
+            VPOperateManager.getInstance().stopDetectECG(
+                BleWriteResponse { code ->
+                    Log.d(TAG, ">>> stopDetectECG write response: code=$code")
+                },
+                true,
+                object : IECGDetectListener {
+                    override fun onEcgDetectInfoChange(info: EcgDetectInfo?) {}
+                    override fun onEcgDetectStateChange(state: EcgDetectState?) {}
+                    override fun onEcgDetectResultChange(result: EcgDetectResult?) {}
+                    override fun onEcgDetectDiagnosisChange(diagnosis: EcgDiagnosis?) {}
+                    override fun onEcgADCChange(adc1: IntArray?, adc2: IntArray?) {}
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "stopEcg failed", e)
+        }
+    }
+
 
     // --- Internal ---
 

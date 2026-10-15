@@ -1,7 +1,6 @@
 package com.luffy.smartringtest.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +23,6 @@ import androidx.compose.ui.unit.dp
 fun TestScreen(
     devices: List<Pair<String, String>>,
     statusText: String,
-    // Metric display lines
     batteryText: String,
     heartRateText: String,
     spo2Text: String,
@@ -33,12 +31,8 @@ fun TestScreen(
     temperatureText: String,
     bloodPressureText: String,
     stressText: String,
-    hrvText: String,
-    fatigueText: String,
-    // UI state
     isScanning: Boolean,
     isConnected: Boolean,
-    // Callbacks
     onScanClick: () -> Unit,
     onDeviceClick: (name: String, mac: String) -> Unit,
     onReadBatteryClick: () -> Unit,
@@ -49,8 +43,7 @@ fun TestScreen(
     onReadTemperatureClick: () -> Unit,
     onReadBloodPressureClick: () -> Unit,
     onReadStressClick: () -> Unit,
-    onReadHrvClick: () -> Unit,
-    onReadFatigueClick: () -> Unit,
+    onOpenEcgClick: () -> Unit,        // ← new
     onOpenHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -66,10 +59,8 @@ fun TestScreen(
         )
 
         Spacer(Modifier.height(12.dp))
-
         Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
 
-        // Metric results
         MetricLine(batteryText)
         MetricLine(heartRateText)
         MetricLine(spo2Text)
@@ -78,12 +69,9 @@ fun TestScreen(
         MetricLine(temperatureText)
         MetricLine(bloodPressureText)
         MetricLine(stressText)
-        MetricLine(hrvText)
-        MetricLine(fatigueText)
 
         Spacer(Modifier.height(12.dp))
 
-        // Scan button
         Button(
             onClick = onScanClick,
             enabled = !isScanning && !isConnected,
@@ -98,7 +86,6 @@ fun TestScreen(
             )
         }
 
-        // Action buttons (only when connected)
         if (isConnected) {
             Spacer(Modifier.height(12.dp))
 
@@ -110,8 +97,11 @@ fun TestScreen(
             ActionButton("Read Temperature", onReadTemperatureClick)
             ActionButton("Read Blood Pressure", onReadBloodPressureClick)
             ActionButton("Read Stress", onReadStressClick)
-            // HRV hidden — not supported by this ring
-            ActionButton("Read Fatigue", onReadFatigueClick)
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onOpenEcgClick,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("📈 Open ECG") }
 
             Spacer(Modifier.height(16.dp))
             Button(

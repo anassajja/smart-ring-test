@@ -8,13 +8,18 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,18 +28,23 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.luffy.smartringtest.ble.BluetoothManager
 import com.luffy.smartringtest.ui.DashboardScreen
+import com.luffy.smartringtest.ui.DeviceScreen
 import com.luffy.smartringtest.ui.EcgScreen
 import com.luffy.smartringtest.ui.HistoryScreen
 import com.luffy.smartringtest.ui.ProfileScreen
 import com.luffy.smartringtest.ui.theme.Primary
 import com.luffy.smartringtest.ui.theme.SmartRingTestTheme
+import com.luffy.smartringtest.ui.theme.StepsGreen
 import com.luffy.smartringtest.ui.theme.TextSecondary
 import com.veepoo.protocol.model.datas.EcgDiagnosis
 
@@ -102,6 +112,7 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         BottomNavBar(
                             selectedTab = selectedTab,
+                            isConnected = isConnected,
                             onTabSelected = { selectedTab = it }
                         )
                     }
@@ -131,6 +142,7 @@ class MainActivity : ComponentActivity() {
                             onReadBloodPressureClick = { readBloodPressure() },
                             onReadStressClick = { readStress() },
                             onOpenEcgClick = { selectedTab = 1 },
+                            onOpenDeviceScreen = { selectedTab = 2 },
                             modifier = Modifier.padding(innerPadding)
                         )
                         1 -> EcgScreen(
@@ -148,7 +160,19 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { selectedTab = 0 },
                             modifier = Modifier.padding(innerPadding)
                         )
-                        2 -> HistoryScreen(
+                        2 -> DeviceScreen(
+                            statusText = statusText,
+                            batteryText = batteryText,
+                            devices = devices,
+                            isScanning = isScanning,
+                            isConnected = isConnected,
+                            onScanClick = { startScan() },
+                            onDeviceClick = { _, mac -> connect(mac) },
+                            onReadBatteryClick = { readBattery() },
+                            onBackClick = { selectedTab = 0 },
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                        3 -> HistoryScreen(
                             readings = historyReadings,
                             statusText = historyStatusText,
                             progress = historyProgress,
@@ -157,7 +181,7 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { selectedTab = 0 },
                             modifier = Modifier.padding(innerPadding)
                         )
-                        3 -> ProfileScreen(
+                        4 -> ProfileScreen(
                             userProfile = userProfile,
                             onSave = { height, weight, age, isMale ->
                                 val p = UserProfile(height, weight, age, isMale)
@@ -165,13 +189,9 @@ class MainActivity : ComponentActivity() {
                                 userProfile = p
                                 syncProfileToRing()
                             },
-                            devices = devices,
-                            isScanning = isScanning,
-                            isConnected = isConnected,
                             isDarkTheme = isDarkTheme,
                             onToggleDarkTheme = { isDarkTheme = !isDarkTheme },
-                            onScanClick = { startScan() },
-                            onDeviceClick = { _, mac -> connect(mac) },
+                            onOpenDeviceScreen = { selectedTab = 2 },
                             modifier = Modifier.padding(innerPadding)
                         )
                     }
@@ -459,38 +479,59 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun BottomNavBar(
     selectedTab: Int,
+    isConnected: Boolean,
     onTabSelected: (Int) -> Unit
 ) {
     val items = listOf(
         Triple(0, "Dashboard", "🏠"),
         Triple(1, "ECG", "📈"),
-        Triple(2, "History", "📜"),
-        Triple(3, "Profile", "👤")
+        Triple(2, "Device", "💍"),
+        Triple(3, "History", "📜"),
+        Triple(4, "Profile", "👤")
     )
 
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = Primary
+    Surface(
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface
     ) {
-        items.forEach { (index, label, emoji) ->
-            val isSelected = selectedTab == index
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onTabSelected(index) },
-                icon = { Text(emoji, fontSize = 20.sp) },
-                label = {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Primary else TextSecondary
+        NavigationBar(
+            containerColor = Color.Transparent,
+            contentColor = Primary
+        ) {
+            items.forEach { (index, label, emoji) ->
+                val isSelected = selectedTab == index
+                NavigationBarItem(
+                    selected = isSelected,
+                    onClick = { onTabSelected(index) },
+                    icon = {
+                        Box {
+                            Text(emoji, fontSize = 20.sp)
+                            if (index == 2 && isConnected) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = StepsGreen,
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .align(Alignment.TopEnd)
+                                ) {}
+                            }
+                        }
+                    },
+                    label = {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Primary else TextSecondary
+                            )
                         )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        indicatorColor = Primary.copy(alpha = 0.15f)
                     )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    indicatorColor = Primary.copy(alpha = 0.12f)
                 )
-            )
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.luffy.smartringtest.ui
 
-import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,10 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luffy.smartringtest.ui.theme.HeartRed
 import com.luffy.smartringtest.ui.theme.HeartRedBg
+import com.luffy.smartringtest.ui.theme.Primary
 import com.luffy.smartringtest.ui.theme.StepsGreen
 import com.luffy.smartringtest.ui.theme.StepsGreenBg
-import com.luffy.smartringtest.ui.theme.TextPrimary
-import com.luffy.smartringtest.ui.theme.TextSecondary
 
 @Composable
 fun EcgScreen(
@@ -62,6 +59,14 @@ fun EcgScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hrZoneText = when {
+        heartRate <= 0 -> "--"
+        heartRate < 60 -> "Resting HR"
+        heartRate in 60..100 -> "Normal Rhythm ✓"
+        heartRate in 101..140 -> "Light Aerobic"
+        else -> "High HR ⚠"
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -70,32 +75,60 @@ fun EcgScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Row(
+        // Styled Header Widget
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column {
-                Text(
-                    text = "ECG Monitor",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                )
-                Text(
-                    text = "Electrocardiogram Recording",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
-                )
-            }
-
-            OutlinedButton(
-                onClick = onBackClick,
-                enabled = !isMeasuring,
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Back")
+                Column(modifier = Modifier.weight(1f)) {
+                    Surface(
+                        shape = CircleShape,
+                        color = HeartRed.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Smart Ring OS • ECG Monitor",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = HeartRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = "Real-time ECG Stream",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    )
+
+                    Text(
+                        text = "Electrocardiogram recording & arrhythmia diagnosis",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onBackClick,
+                    enabled = !isMeasuring,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Back")
+                }
             }
         }
 
@@ -130,16 +163,34 @@ fun EcgScreen(
                         Spacer(Modifier.width(12.dp))
 
                         Column {
-                            Text(
-                                text = if (heartRate > 0) "$heartRate BPM" else "-- BPM",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = HeartRed
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (heartRate > 0) "$heartRate BPM" else "-- BPM",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = HeartRed
+                                    )
                                 )
-                            )
+                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    shape = CircleShape,
+                                    color = HeartRed.copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = hrZoneText,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = HeartRed,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
                             Text(
                                 text = statusText,
-                                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             )
                         }
                     }
@@ -163,7 +214,9 @@ fun EcgScreen(
 
                 Text(
                     text = "Place index finger & thumb firmly on the ring electrode during measurement.",
-                    style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 )
 
                 if (isMeasuring) {
@@ -178,7 +231,9 @@ fun EcgScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Progress: ${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
@@ -190,11 +245,11 @@ fun EcgScreen(
                 .fillMaxWidth()
                 .height(240.dp),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                EcgWaveformCanvas(waveform = waveform)
+                EcgWaveformCanvas(waveform = waveform, isMeasuring = isMeasuring)
             }
         }
 
@@ -233,13 +288,15 @@ fun EcgScreen(
                         text = "📊 ECG Measurement Result",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = resultSummary,
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
@@ -263,7 +320,7 @@ fun EcgScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = diagnosisText,
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF1E293B))
                     )
                 }
             }
@@ -272,7 +329,7 @@ fun EcgScreen(
 }
 
 @Composable
-private fun EcgWaveformCanvas(waveform: List<Int>) {
+private fun EcgWaveformCanvas(waveform: List<Int>, isMeasuring: Boolean) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
@@ -282,7 +339,7 @@ private fun EcgWaveformCanvas(waveform: List<Int>) {
         var xGrid = 0f
         while (xGrid < w) {
             drawLine(
-                color = Color(0xFF334155),
+                color = Color(0xFF1E293B),
                 start = Offset(xGrid, 0f),
                 end = Offset(xGrid, h),
                 strokeWidth = 1f
@@ -293,7 +350,7 @@ private fun EcgWaveformCanvas(waveform: List<Int>) {
         var yGrid = 0f
         while (yGrid < h) {
             drawLine(
-                color = Color(0xFF334155),
+                color = Color(0xFF1E293B),
                 start = Offset(0f, yGrid),
                 end = Offset(w, yGrid),
                 strokeWidth = 1f
@@ -303,13 +360,17 @@ private fun EcgWaveformCanvas(waveform: List<Int>) {
 
         // Center baseline
         drawLine(
-            color = Color(0xFF475569),
+            color = Color(0xFF334155),
             start = Offset(0f, h / 2),
             end = Offset(w, h / 2),
             strokeWidth = 2f
         )
 
-        if (waveform.size < 2) return@Canvas
+        // If no active data or small buffer, draw a resting ECG template baseline curve
+        if (waveform.size < 4) {
+            drawRestingEcgTemplate(w, h)
+            return@Canvas
+        }
 
         val visibleSamples = 300
         val data = if (waveform.size > visibleSamples) {
@@ -318,25 +379,30 @@ private fun EcgWaveformCanvas(waveform: List<Int>) {
             waveform
         }
 
-        if (data.size < 2) return@Canvas
-
         var minV = Int.MAX_VALUE
         var maxV = Int.MIN_VALUE
+        var sum = 0L
         for (v in data) {
             if (v < minV) minV = v
             if (v > maxV) maxV = v
+            sum += v
         }
 
-        if (minV == Int.MAX_VALUE || maxV == Int.MIN_VALUE) return@Canvas
-        if (maxV - minV < 5) return@Canvas
+        if (minV == Int.MAX_VALUE || maxV == Int.MIN_VALUE) {
+            drawRestingEcgTemplate(w, h)
+            return@Canvas
+        }
 
-        val range = (maxV - minV).toFloat().coerceAtLeast(1f)
+        val range = (maxV - minV).toFloat().coerceAtLeast(10f)
+        val avg = (sum.toFloat() / data.size)
         val path = Path()
         val stepX = w / (data.size - 1).coerceAtLeast(1)
 
+        // Auto-gain scaling around center baseline
         data.forEachIndexed { i, v ->
-            val normalized = ((v - minV).toFloat() / range).coerceIn(0f, 1f)
-            val y = h - (normalized * h * 0.85f) - (h * 0.075f)
+            val dev = v - avg
+            val normDev = (dev / range).coerceIn(-0.5f, 0.5f)
+            val y = (h / 2) - (normDev * h * 0.75f)
             val x = i * stepX
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
@@ -344,7 +410,38 @@ private fun EcgWaveformCanvas(waveform: List<Int>) {
         drawPath(
             path = path,
             color = Color(0xFF00E676),  // Neon medical green
-            style = Stroke(width = 3f)
+            style = Stroke(width = 3.5f)
         )
     }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRestingEcgTemplate(
+    w: Float,
+    h: Float
+) {
+    val path = Path()
+    val midY = h / 2
+    val pulseWidth = 200f
+    var x = 0f
+
+    path.moveTo(0f, midY)
+    while (x < w) {
+        path.lineTo(x + 40f, midY)
+        path.lineTo(x + 50f, midY - 10f)  // P wave
+        path.lineTo(x + 60f, midY)
+        path.lineTo(x + 70f, midY + 8f)   // Q wave
+        path.lineTo(x + 80f, midY - 55f)  // R wave (peak)
+        path.lineTo(x + 90f, midY + 18f)  // S wave
+        path.lineTo(x + 100f, midY)
+        path.lineTo(x + 120f, midY - 15f) // T wave
+        path.lineTo(x + 140f, midY)
+        path.lineTo(x + pulseWidth, midY)
+        x += pulseWidth
+    }
+
+    drawPath(
+        path = path,
+        color = Color(0xFF00E676).copy(alpha = 0.45f),
+        style = Stroke(width = 2.5f)
+    )
 }

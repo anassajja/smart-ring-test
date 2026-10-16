@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +21,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luffy.smartringtest.HealthReading
@@ -39,8 +36,6 @@ import com.luffy.smartringtest.ui.theme.HeartRedBg
 import com.luffy.smartringtest.ui.theme.Primary
 import com.luffy.smartringtest.ui.theme.StepsGreen
 import com.luffy.smartringtest.ui.theme.StepsGreenBg
-import com.luffy.smartringtest.ui.theme.TextPrimary
-import com.luffy.smartringtest.ui.theme.TextSecondary
 
 @Composable
 fun HistoryScreen(
@@ -59,37 +54,65 @@ fun HistoryScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Row(
+        // Styled Header Widget
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column {
-                Text(
-                    text = "History & Logs",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                )
-                Text(
-                    text = "Synced health & activity data",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
-                )
-            }
-
-            Button(
-                onClick = onSyncClick,
-                enabled = !isSyncing,
-                colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (isSyncing) "Syncing..." else "Sync History")
+                Column(modifier = Modifier.weight(1f)) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Primary.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Smart Ring OS • Health Logs",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = "Synced Health History",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    )
+
+                    Text(
+                        text = "Historical vitals for heart rate, steps & activity",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+
+                Button(
+                    onClick = onSyncClick,
+                    enabled = !isSyncing,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isSyncing) "Syncing..." else "Sync History")
+                }
             }
         }
 
-        // Status Card
+        // Status Banner Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -99,7 +122,9 @@ fun HistoryScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = statusText,
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary)
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 )
 
                 if (isSyncing) {
@@ -124,7 +149,7 @@ fun HistoryScreen(
                 text = "Total Records (${readings.size})",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -138,8 +163,10 @@ fun HistoryScreen(
             ) {
                 Text(
                     text = "No history records found.\nTap \"Sync History\" above to pull log data from your ring.",
-                    style = MaterialTheme.typography.bodyLarge.copy(color = TextSecondary),
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         } else {
@@ -173,7 +200,7 @@ private fun ReadingCard(r: HealthReading) {
                     text = "${r.date}  •  ${r.time}",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 )
 
@@ -216,7 +243,7 @@ private fun MetricChip(icon: String, text: String) {
             text = text,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
     }

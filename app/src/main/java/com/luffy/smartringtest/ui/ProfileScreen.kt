@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -29,31 +32,45 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.luffy.smartringtest.UserProfile
 import com.luffy.smartringtest.ui.theme.Primary
 import com.luffy.smartringtest.ui.theme.PrimaryLight
+import com.luffy.smartringtest.ui.theme.StepsGreen
+import com.luffy.smartringtest.ui.theme.StepsGreenBg
 
 @Composable
 fun ProfileScreen(
     userProfile: UserProfile? = null,
     onSave: (height: Int, weight: Int, age: Int, isMale: Boolean) -> Unit,
-    devices: List<Pair<String, String>> = emptyList(),
-    isScanning: Boolean = false,
-    isConnected: Boolean = false,
     isDarkTheme: Boolean = false,
     onToggleDarkTheme: () -> Unit = {},
-    onScanClick: () -> Unit = {},
-    onDeviceClick: (name: String, mac: String) -> Unit = { _, _ -> },
+    onOpenDeviceScreen: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var heightText by remember(userProfile) { mutableStateOf(userProfile?.height?.toString() ?: "175") }
     var weightText by remember(userProfile) { mutableStateOf(userProfile?.weight?.toString() ?: "70") }
     var ageText by remember(userProfile) { mutableStateOf(userProfile?.age?.toString() ?: "25") }
     var isMale by remember(userProfile) { mutableStateOf(userProfile?.isMale ?: true) }
+    var useMetric by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf("") }
     var savedSuccessText by remember { mutableStateOf("") }
+
+    // Automatic BMI Calculation
+    val heightM = (heightText.toFloatOrNull() ?: 175f) / 100f
+    val weightKg = weightText.toFloatOrNull() ?: 70f
+    val bmi = if (heightM > 0) weightKg / (heightM * heightM) else 0f
+    val bmiCategory = when {
+        bmi <= 0 -> "--"
+        bmi < 18.5f -> "Underweight"
+        bmi < 25f -> "Normal Weight ✓"
+        bmi < 30f -> "Overweight"
+        else -> "Obese"
+    }
 
     Column(
         modifier = modifier
@@ -63,177 +80,183 @@ fun ProfileScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Title
-        Column {
-            Text(
-                text = "Device & Profile",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            )
-            Text(
-                text = "Ring connectivity, theme preferences and health metrics setup",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        }
-
-        // Appearance / Theme Preferences Card
+        // Styled Header Widget
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Primary.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = "Smart Ring OS • Profile & Settings",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
                 Text(
-                    text = "🎨 Appearance Theme",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                    text = "Personal Health Profile",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 )
 
-                Spacer(Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ThemeChip(
-                        label = "Light Mode ☀️",
-                        selected = !isDarkTheme,
-                        onClick = { if (isDarkTheme) onToggleDarkTheme() },
-                        modifier = Modifier.weight(1f)
+                Text(
+                    text = "Used by the ring to compute step stride, calories & sleep stats",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    ThemeChip(
-                        label = "Dark Mode 🌙",
-                        selected = isDarkTheme,
-                        onClick = { if (!isDarkTheme) onToggleDarkTheme() },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                )
             }
         }
 
-        // Ring Device Management Card
+        // Avatar & BMI Health Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "📡 Ring Bluetooth Connection",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(Primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (isMale) "👨‍💼" else "👩‍💼", fontSize = 32.sp)
+                    }
 
-                Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.width(14.dp))
 
-                Button(
-                    onClick = onScanClick,
-                    enabled = !isScanning && !isConnected,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        when {
-                            isConnected -> "Connected to Ring"
-                            isScanning -> "Scanning for Rings..."
-                            else -> "Scan for Smart Rings"
-                        }
-                    )
+                    Column {
+                        Text(
+                            text = if (isMale) "Male Profile" else "Female Profile",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        )
+                        Text(
+                            text = "${heightText} cm • ${weightText} kg • ${ageText} yrs",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
                 }
 
-                if (devices.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "Discovered Devices:",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    Spacer(Modifier.height(8.dp))
-
-                    devices.forEach { (name, mac) ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !isConnected) { onDeviceClick(name, mac) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = StepsGreenBg
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "BMI %.1f".format(bmi),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = StepsGreen,
+                                fontWeight = FontWeight.ExtraBold
                             )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        name.ifEmpty { "Unknown Ring" },
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                    Text(
-                                        mac,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
-                                }
-                                Text(
-                                    if (isConnected) "Connected" else "Tap to Connect",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = Primary)
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
+                        )
+                        Text(
+                            text = bmiCategory,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = StepsGreen,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
                     }
                 }
             }
         }
 
-        // Profile Setup Card
+        // Device Management Quick Link
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenDeviceScreen() },
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📡", fontSize = 22.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Manage Bluetooth Ring",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        )
+                        Text(
+                            text = "Pair new devices, view battery level & RSSI signal",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
+                }
+                Text("➔", fontSize = 18.sp, color = Primary)
+            }
+        }
+
+        // Biometrics Form Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 Text(
-                    text = "👤 User Profile",
+                    text = "📋 Biometric Parameters",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 )
 
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = "Used by the ring to accurately compute step length, calories, and sleep statistics.",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(14.dp))
 
                 OutlinedTextField(
                     value = heightText,
                     onValueChange = { heightText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Height (cm)") },
+                    label = { Text("Height (${if (useMetric) "cm" else "in"})") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -243,7 +266,7 @@ fun ProfileScreen(
                 OutlinedTextField(
                     value = weightText,
                     onValueChange = { weightText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Weight (kg)") },
+                    label = { Text("Weight (${if (useMetric) "kg" else "lbs"})") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -332,11 +355,85 @@ fun ProfileScreen(
                 }
             }
         }
+
+        // Appearance & Unit Settings Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Text(
+                    text = "⚙️ App Preferences",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Appearance Theme",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ChipButton(
+                        label = "Light Mode ☀️",
+                        selected = !isDarkTheme,
+                        onClick = { if (isDarkTheme) onToggleDarkTheme() },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ChipButton(
+                        label = "Dark Mode 🌙",
+                        selected = isDarkTheme,
+                        onClick = { if (!isDarkTheme) onToggleDarkTheme() },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                Text(
+                    text = "Unit System",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ChipButton(
+                        label = "Metric (cm / kg)",
+                        selected = useMetric,
+                        onClick = { useMetric = true },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ChipButton(
+                        label = "Imperial (in / lbs)",
+                        selected = !useMetric,
+                        onClick = { useMetric = false },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun ThemeChip(
+private fun ChipButton(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,

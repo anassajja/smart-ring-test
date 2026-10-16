@@ -21,7 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -50,8 +50,6 @@ import com.luffy.smartringtest.ui.theme.StressYellow
 import com.luffy.smartringtest.ui.theme.StressYellowBg
 import com.luffy.smartringtest.ui.theme.TempOrange
 import com.luffy.smartringtest.ui.theme.TempOrangeBg
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -78,6 +76,7 @@ fun DashboardScreen(
     onReadBloodPressureClick: () -> Unit,
     onReadStressClick: () -> Unit,
     onOpenEcgClick: () -> Unit,
+    onOpenDeviceScreen: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -101,10 +100,11 @@ fun DashboardScreen(
             isScanning = isScanning,
             isConnected = isConnected,
             onScanClick = onScanClick,
-            onReadBatteryClick = onReadBatteryClick
+            onReadBatteryClick = onReadBatteryClick,
+            onOpenDeviceScreen = onOpenDeviceScreen
         )
 
-        // Activity Overview Card
+        // Activity Overview Card (Goal 10,000 steps)
         ActivityCard(
             stepsText = stepsText,
             isConnected = isConnected,
@@ -234,7 +234,7 @@ private fun DashboardHeaderWidget(
         else -> "Good Night 🌌"
     }
 
-    val dateFormat = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
+    val dateFormat = java.text.SimpleDateFormat("EEEE, MMM d", java.util.Locale.getDefault())
     val dateString = dateFormat.format(calendar.time)
 
     Card(
@@ -318,7 +318,8 @@ private fun RingDeviceCard(
     isScanning: Boolean,
     isConnected: Boolean,
     onScanClick: () -> Unit,
-    onReadBatteryClick: () -> Unit
+    onReadBatteryClick: () -> Unit,
+    onOpenDeviceScreen: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -370,14 +371,15 @@ private fun RingDeviceCard(
                 }
 
                 Surface(
+                    onClick = onOpenDeviceScreen,
                     shape = CircleShape,
-                    color = if (isConnected) StepsGreenBg else HeartRedBg
+                    color = Primary.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        text = if (isConnected) "Active" else "Offline",
+                        text = "⚙️ Device",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isConnected) StepsGreen else HeartRed,
+                            color = Primary,
                             fontWeight = FontWeight.Bold
                         )
                     )
@@ -408,13 +410,12 @@ private fun RingDeviceCard(
             } else {
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = onScanClick,
-                    enabled = !isScanning,
+                    onClick = onOpenDeviceScreen,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (isScanning) "Scanning for Ring..." else "Connect Smart Ring")
+                    Text("Pair & Connect Device")
                 }
             }
         }
@@ -427,6 +428,17 @@ private fun ActivityCard(
     isConnected: Boolean,
     onReadStepsClick: () -> Unit
 ) {
+    // Extract step count number safely matching 'Steps: <number>'
+    val stepCount = Regex("""Steps:\s*(\d+)""", RegexOption.IGNORE_CASE)
+        .find(stepsText)?.groupValues?.get(1)?.toIntOrNull()
+        ?: Regex("""🚶\s*(\d+)""").find(stepsText)?.groupValues?.get(1)?.toIntOrNull()
+        ?: Regex("""^(\d+)""").find(stepsText.trim())?.groupValues?.get(1)?.toIntOrNull()
+        ?: 0
+
+    val targetGoal = 10000
+    val progressFraction = (stepCount.toFloat() / targetGoal).coerceIn(0f, 1f)
+    val percentCompleted = (progressFraction * 100).toInt()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -447,7 +459,7 @@ private fun ActivityCard(
                     Text("🚶", fontSize = 20.sp)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Daily Activity",
+                        text = "Daily Step Goal",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = StepsGreen
@@ -461,7 +473,7 @@ private fun ActivityCard(
                         colors = ButtonDefaults.buttonColors(containerColor = StepsGreen),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Update Steps", color = Color.White)
+                        Text("Sync Steps", color = Color.White)
                     }
                 }
             }
@@ -469,10 +481,32 @@ private fun ActivityCard(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = stepsText.ifEmpty { "Tap update to sync steps" },
+                text = stepsText.ifEmpty { "0 steps" },
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.Bold,
                     color = StepsGreen
+                )
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            LinearProgressIndicator(
+                progress = { progressFraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                color = StepsGreen,
+                trackColor = StepsGreen.copy(alpha = 0.2f)
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "Goal: $targetGoal steps • $percentCompleted% completed",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = StepsGreen,
+                    fontWeight = FontWeight.Medium
                 )
             )
         }

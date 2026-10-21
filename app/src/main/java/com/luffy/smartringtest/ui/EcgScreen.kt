@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,12 +35,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luffy.smartringtest.R
 import com.luffy.smartringtest.ui.theme.HeartRed
 import com.luffy.smartringtest.ui.theme.HeartRedBg
-import com.luffy.smartringtest.ui.theme.Primary
 import com.luffy.smartringtest.ui.theme.StepsGreen
 import com.luffy.smartringtest.ui.theme.StepsGreenBg
 
@@ -75,60 +77,25 @@ fun EcgScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Styled Header Widget
-        Card(
+        Spacer(Modifier.height(8.dp))
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Text(
+                text = "ECG Monitor",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            )
+            OutlinedButton(
+                onClick = onBackClick,
+                enabled = !isMeasuring,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        shape = CircleShape,
-                        color = HeartRed.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "Smart Ring OS • ECG Monitor",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = HeartRed,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = "Real-time ECG Stream",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    )
-
-                    Text(
-                        text = "Electrocardiogram recording & arrhythmia diagnosis",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onBackClick,
-                    enabled = !isMeasuring,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Back")
-                }
+                Text("Back")
             }
         }
 
@@ -157,7 +124,12 @@ fun EcgScreen(
                                 .background(HeartRedBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("❤️", fontSize = 22.sp)
+                            Icon(
+                                painter = painterResource(R.drawable.ic_heart_rate),
+                                contentDescription = "Heart Rate",
+                                tint = HeartRed,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
 
                         Spacer(Modifier.width(12.dp))

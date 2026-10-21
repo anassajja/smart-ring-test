@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Head Circle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#64748B"
+        android:strokeWidth="2"
+        android:pathData="M12,4 A4,4 0,1,0 12,12 A4,4 0,1,0 12,4 Z" />
+    <!-- Shoulder Curve -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#64748B"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M4,20 C4,16 7.58,15 12,15 C16.42,15 20,16 20,20" />
+</vector>

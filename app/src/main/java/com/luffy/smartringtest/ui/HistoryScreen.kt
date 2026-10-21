@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,10 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luffy.smartringtest.HealthReading
+import com.luffy.smartringtest.R
 import com.luffy.smartringtest.ui.theme.HeartRed
 import com.luffy.smartringtest.ui.theme.HeartRedBg
 import com.luffy.smartringtest.ui.theme.Primary
@@ -51,94 +55,10 @@ fun HistoryScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(top = 24.dp, start = 16.dp, end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Styled Header Widget
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Primary.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "Smart Ring OS • Health Logs",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = "Synced Health History",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    )
-
-                    Text(
-                        text = "Historical vitals for heart rate, steps & activity",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-
-                Button(
-                    onClick = onSyncClick,
-                    enabled = !isSyncing,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (isSyncing) "Syncing..." else "Sync History")
-                }
-            }
-        }
-
-        // Status Banner Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                )
-
-                if (isSyncing) {
-                    Spacer(Modifier.height(10.dp))
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp)),
-                        color = Primary
-                    )
-                }
-            }
-        }
+        Spacer(Modifier.height(8.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -146,12 +66,49 @@ fun HistoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Total Records (${readings.size})",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
+                text = "Health History",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             )
+
+            Button(
+                onClick = onSyncClick,
+                enabled = !isSyncing,
+                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(if (isSyncing) "Syncing..." else "Sync Now")
+            }
+        }
+
+        if (statusText.isNotEmpty() || isSyncing) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    )
+
+                    if (isSyncing) {
+                        Spacer(Modifier.height(10.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp)),
+                            color = Primary
+                        )
+                    }
+                }
+            }
         }
 
         if (readings.isEmpty()) {
@@ -162,7 +119,7 @@ fun HistoryScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No history records found.\nTap \"Sync History\" above to pull log data from your ring.",
+                    text = "No history records found.\nTap \"Sync Now\" to pull log data from your ring.",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
@@ -172,7 +129,8 @@ fun HistoryScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp)
             ) {
                 items(readings) { r ->
                     ReadingCard(r)
@@ -188,60 +146,79 @@ private fun ReadingCard(r: HealthReading) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left Timeline Dot/Time
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(64.dp)
             ) {
                 Text(
-                    text = "${r.date}  •  ${r.time}",
+                    text = r.time,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 )
-
+                Spacer(Modifier.height(4.dp))
                 Surface(
                     shape = CircleShape,
                     color = if (r.wear == 1) StepsGreenBg else HeartRedBg
                 ) {
-                    Text(
-                        text = if (r.wear == 1) "Worn" else "Off Hand",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (r.wear == 1) StepsGreen else HeartRed,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
+                    Box(modifier = Modifier.size(12.dp))
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.width(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                MetricChip("❤️", "${r.heartRate} bpm")
-                MetricChip("🚶", "${r.steps} steps")
-                MetricChip("🔥", "${"%.1f".format(r.calories)} kcal")
-                MetricChip("📏", "${"%.2f".format(r.distanceMeters)} km")
+            // Right Content Area
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = r.date,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    VectorMetricChip(R.drawable.ic_heart_rate, "${r.heartRate} bpm")
+                    VectorMetricChip(R.drawable.ic_steps, "${r.steps} steps")
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (r.bloodGlucose > 0f) {
+                        VectorMetricChip(R.drawable.ic_blood_glucose, "${"%.1f".format(r.bloodGlucose)} mmol/L")
+                    }
+                    VectorMetricChip(R.drawable.ic_health_nav, "${"%.1f".format(r.calories)} kcal")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MetricChip(icon: String, text: String) {
+private fun VectorMetricChip(iconRes: Int, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(icon, fontSize = 14.sp)
-        Spacer(Modifier.width(4.dp))
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = Primary,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(6.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall.copy(
+            style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

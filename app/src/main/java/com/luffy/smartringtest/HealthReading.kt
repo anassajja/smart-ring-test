@@ -12,5 +12,6 @@ data class HealthReading(
     val distanceMeters: Double,
     val calories: Double,
     val sportValue: Int,       // activity intensity 0..65535
-    val wear: Int              // 0/1 = ring on/off
+    val wear: Int,             // 0/1 = ring on/off
+    val bloodGlucose: Float = 0f  // mmol/L (0 = no reading)
 )

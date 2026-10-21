@@ -1,13 +1,7 @@
 package com.luffy.smartringtest.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,29 +18,34 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.luffy.smartringtest.ui.theme.BatteryGreen
-import com.luffy.smartringtest.ui.theme.HeartRed
-import com.luffy.smartringtest.ui.theme.HeartRedBg
+import com.luffy.smartringtest.R
 import com.luffy.smartringtest.ui.theme.Primary
-import com.luffy.smartringtest.ui.theme.StepsGreen
-import com.luffy.smartringtest.ui.theme.StepsGreenBg
 
 @Composable
 fun DeviceScreen(
@@ -59,343 +58,294 @@ fun DeviceScreen(
     onDeviceClick: (name: String, mac: String) -> Unit,
     onReadBatteryClick: () -> Unit,
     onBackClick: () -> Unit,
+    onFindDeviceClick: () -> Unit,
+    onDisconnectClick: () -> Unit = {},
+    onCameraClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var showFindDeviceDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Top Header Card
+        Spacer(Modifier.height(8.dp))
+        
+        Text(
+            text = "Device",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        )
+
+        // Hero Device Card (H Ring Style)
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, Primary.copy(alpha = 0.15f), RoundedCornerShape(22.dp)),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Primary.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "Smart Ring OS • Device Center",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Primary,
-                                fontWeight = FontWeight.Bold
-                            )
+                Surface(
+                    shape = CircleShape,
+                    color = Primary
+                ) {
+                    Box(modifier = Modifier.padding(12.dp)) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_smart_ring),
+                            contentDescription = "Device",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
                         )
                     }
+                }
 
-                    Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.width(16.dp))
 
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Device Management",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onBackground
+                        text = if (isConnected) "Smart Ring Linked ✓" else if (isScanning) "Searching Ring..." else "Smart Ring V80",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 18.sp
                         )
                     )
-
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Pair, connect and check Bluetooth ring status",
+                        text = if (isConnected) "✨ Device Active & Synchronized" else if (isScanning) "📡 Scanning BLE signals..." else "⚡ Ready to Pair • C1:40:32...",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isConnected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isConnected) FontWeight.Bold else FontWeight.Normal
                         )
                     )
                 }
 
-                OutlinedButton(
-                    onClick = onBackClick,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Back")
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = if (isConnected) "Connected" else "Disconnected",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = if (isConnected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (isConnected) {
+                        TextButton(onClick = onDisconnectClick) {
+                            Text("Disconnect", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                        }
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_update),
+                            contentDescription = "Sync",
+                            tint = Primary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { onScanClick() }
+                        )
+                    }
                 }
             }
         }
 
-        if (isConnected) {
-            // Connected Ring Status Card
-            Card(
+        if (batteryText.isNotEmpty() && isConnected) {
+            Text(
+                text = "Battery: ${batteryText.removePrefix("🔋").trim()}",
+                style = MaterialTheme.typography.bodyMedium.copy(color = Primary, fontWeight = FontWeight.Bold),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // Scan & Device Detection Section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(StepsGreenBg),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("💍", fontSize = 42.sp)
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
                     Text(
-                        text = "Smart Ring Pro Connected",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    )
-
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    val cleanBattery = batteryText.removePrefix("🔋").trim()
-                    val displayBattery = if (cleanBattery.isNotEmpty()) cleanBattery else "Tap to check"
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = StepsGreenBg
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("🔋", fontSize = 16.sp)
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = displayBattery,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = BatteryGreen,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Primary.copy(alpha = 0.12f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("⚡", fontSize = 16.sp)
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "BLE Active",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = Primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(18.dp))
-
-                    Button(
-                        onClick = onReadBatteryClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Check Battery Status")
-                    }
-                }
-            }
-        } else {
-            // Radar Scanning Ripple Animation Box
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    RadarAnimation(isScanning = isScanning)
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(
-                        text = if (isScanning) "Searching for Smart Rings..." else "Tap to scan for nearby rings",
+                        text = if (isScanning) "Searching for Smart Rings..." else "Discovered Devices (${devices.size})",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     )
-
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-
-                    Spacer(Modifier.height(18.dp))
-
                     Button(
                         onClick = onScanClick,
                         enabled = !isScanning,
                         colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (isScanning) "Scanning..." else "Scan for Smart Rings")
+                        Text(if (isScanning) "Scanning..." else "Scan Now")
                     }
                 }
-            }
-        }
 
-        // Discovered Devices List Card
-        if (devices.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Discovered Rings (${devices.size})",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    )
+                if (isScanning) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(painter = painterResource(R.drawable.ic_radar), contentDescription = null, tint = Primary, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Searching for nearby BLE smart rings...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
 
-                    Spacer(Modifier.height(12.dp))
-
-                    devices.forEach { (name, mac) ->
-                        Card(
+                if (devices.isNotEmpty()) {
+                    devices.forEachIndexed { index, (name, mac) ->
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !isConnected) { onDeviceClick(name, mac) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                                .clickable { onDeviceClick(name, mac) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Column {
+                                Text(
+                                    text = name.ifEmpty { "Smart Ring" },
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = mac,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                            Button(
+                                onClick = { onDeviceClick(name, mac) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("💍", fontSize = 24.sp)
-                                    Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = name.ifEmpty { "Smart Ring" },
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onBackground
-                                            )
-                                        )
-                                        Text(
-                                            text = mac,
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                        Text(
-                                            text = "📶 Signal Strength: Strong (-62 dBm)",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Primary,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = { onDeviceClick(name, mac) },
-                                    enabled = !isConnected,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text(if (isConnected) "Connected" else "Connect")
-                                }
+                                Text("Connect")
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
+                        if (index < devices.size - 1) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        }
                     }
                 }
             }
         }
+
+        // Functions Section
+        Text(
+            text = "Functions",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                SettingsRow(
+                    iconRes = R.drawable.ic_smart_ring,
+                    title = "Find Device",
+                    iconTint = Color(0xFFFBBF24),
+                    onClick = { showFindDeviceDialog = true }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsRow(
+                    iconRes = R.drawable.ic_profile_nav,
+                    title = "Camera Shutter",
+                    iconTint = Color(0xFF93C5FD),
+                    onClick = onCameraClick
+                )
+            }
+        }
+
+        // Settings Section
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                SettingsRow(iconRes = R.drawable.ic_health_nav, title = "Health & Monitor", iconTint = Color(0xFFF87171), onClick = {})
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsRow(iconRes = R.drawable.ic_system, title = "System", iconTint = Color(0xFF94A3B8), onClick = {})
+            }
+        }
+        
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showFindDeviceDialog) {
+        AlertDialog(
+            onDismissRequest = { showFindDeviceDialog = false },
+            title = { Text("Find Device") },
+            text = { Text("Remote locating and vibrating is not supported by this ring model's protocol. Ensure Bluetooth is on and the ring is nearby.") },
+            confirmButton = {
+                TextButton(onClick = { showFindDeviceDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 
 @Composable
-private fun RadarAnimation(isScanning: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val pulseProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        )
-    )
-
-    Box(
-        modifier = Modifier.size(120.dp),
-        contentAlignment = Alignment.Center
+private fun SettingsRow(
+    iconRes: Int,
+    title: String,
+    iconTint: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isScanning) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val radius = (size.minDimension / 2) * pulseProgress
-                val alpha = (1f - pulseProgress).coerceIn(0f, 1f)
-                drawCircle(
-                    color = Color(0xFF0DB39E).copy(alpha = alpha * 0.4f),
-                    radius = radius
-                )
-                drawCircle(
-                    color = Color(0xFF0DB39E).copy(alpha = (alpha * 0.2f).coerceIn(0f, 1f)),
-                    radius = radius * 0.6f
-                )
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(Primary.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("📡", fontSize = 32.sp)
-        }
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onBackground
+            ),
+            modifier = Modifier.weight(1f)
+        )
+        Text("›", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

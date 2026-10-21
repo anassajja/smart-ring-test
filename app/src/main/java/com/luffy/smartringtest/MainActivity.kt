@@ -10,10 +10,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -21,6 +23,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,6 +62,7 @@ class MainActivity : ComponentActivity() {
 
     private var userProfile by mutableStateOf<UserProfile?>(null)
     private var isDarkTheme by mutableStateOf(false)
+    private var stepGoal by mutableIntStateOf(10000)
 
     // Live-metric state
     private val devices = mutableStateListOf<Pair<String, String>>()
@@ -66,6 +70,7 @@ class MainActivity : ComponentActivity() {
     private var batteryText by mutableStateOf("")
     private var heartRateText by mutableStateOf("")
     private var spo2Text by mutableStateOf("")
+    private var pbgText by mutableStateOf("")
     private var stepsText by mutableStateOf("")
     private var sleepText by mutableStateOf("")
     private var temperatureText by mutableStateOf("")
@@ -86,66 +91,62 @@ class MainActivity : ComponentActivity() {
     private var isScanning by mutableStateOf(false)
     private var isConnected by mutableStateOf(false)
 
-    // History state
+    // History & Sync state
     private val historyReadings = mutableStateListOf<HealthReading>()
     private var historyStatusText by mutableStateOf("Not synced yet")
     private var historyProgress by mutableStateOf(0f)
     private var isSyncingHistory by mutableStateOf(false)
+    private var showSyncSuccessAnimation by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
         userProfile = ProfileStore.load(this)
+        stepGoal = ProfileStore.loadStepGoal(this)
 
         bluetoothManager = BluetoothManager(this)
         bluetoothManager.init()
+        
+        bluetoothManager.onConnectionStateChanged = { connected ->
+            runOnUiThread {
+                isConnected = connected
+                if (!connected) {
+                    statusText = "Ring disconnected"
+                }
+            }
+        }
 
         requestBluetoothPermissions()
 
         setContent {
             SmartRingTestTheme(darkTheme = isDarkTheme) {
                 var selectedTab by remember { mutableIntStateOf(0) }
+                var showingEcgScreen by remember { mutableStateOf(false) }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        BottomNavBar(
-                            selectedTab = selectedTab,
-                            isConnected = isConnected,
-                            onTabSelected = { selectedTab = it }
-                        )
+                        if (!showingEcgScreen) {
+                            BottomNavBar(
+                                selectedTab = selectedTab,
+                                isConnected = isConnected,
+                                onTabSelected = { selectedTab = it }
+                            )
+                        }
                     }
                 ) { innerPadding ->
-                    when (selectedTab) {
-                        0 -> DashboardScreen(
-                            statusText = statusText,
-                            batteryText = batteryText,
-                            heartRateText = heartRateText,
-                            spo2Text = spo2Text,
-                            stepsText = stepsText,
-                            sleepText = sleepText,
-                            temperatureText = temperatureText,
-                            bloodPressureText = bloodPressureText,
-                            stressText = stressText,
-                            isScanning = isScanning,
-                            isConnected = isConnected,
-                            isDarkTheme = isDarkTheme,
-                            onToggleDarkTheme = { isDarkTheme = !isDarkTheme },
-                            onScanClick = { startScan() },
-                            onReadBatteryClick = { readBattery() },
-                            onReadHeartRateClick = { readHeartRate() },
-                            onReadSpO2Click = { readSpO2() },
-                            onReadStepsClick = { readSteps() },
-                            onReadSleepClick = { readSleep() },
-                            onReadTemperatureClick = { readTemperature() },
-                            onReadBloodPressureClick = { readBloodPressure() },
-                            onReadStressClick = { readStress() },
-                            onOpenEcgClick = { selectedTab = 1 },
-                            onOpenDeviceScreen = { selectedTab = 2 },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                        1 -> EcgScreen(
+                    androidx.compose.runtime.LaunchedEffect(isConnected) {
+                        if (isConnected) {
+                            while (true) {
+                                kotlinx.coroutines.delay(300_000L) // 5-minute auto-sync
+                                syncHistory()
+                            }
+                        }
+                    }
+
+                    if (showingEcgScreen) {
+                        EcgScreen(
                             statusText = ecgStatusText,
                             progress = ecgProgress,
                             heartRate = ecgHeartRate,
@@ -157,43 +158,86 @@ class MainActivity : ComponentActivity() {
                             waveformVersion = ecgWaveformVersion,
                             onStartClick = { startEcg() },
                             onStopClick = { stopEcg() },
-                            onBackClick = { selectedTab = 0 },
+                            onBackClick = { showingEcgScreen = false },
                             modifier = Modifier.padding(innerPadding)
                         )
-                        2 -> DeviceScreen(
-                            statusText = statusText,
-                            batteryText = batteryText,
-                            devices = devices,
-                            isScanning = isScanning,
-                            isConnected = isConnected,
-                            onScanClick = { startScan() },
-                            onDeviceClick = { _, mac -> connect(mac) },
-                            onReadBatteryClick = { readBattery() },
-                            onBackClick = { selectedTab = 0 },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                        3 -> HistoryScreen(
-                            readings = historyReadings,
-                            statusText = historyStatusText,
-                            progress = historyProgress,
-                            isSyncing = isSyncingHistory,
-                            onSyncClick = { syncHistory() },
-                            onBackClick = { selectedTab = 0 },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                        4 -> ProfileScreen(
-                            userProfile = userProfile,
-                            onSave = { height, weight, age, isMale ->
-                                val p = UserProfile(height, weight, age, isMale)
-                                ProfileStore.save(this, p)
-                                userProfile = p
-                                syncProfileToRing()
-                            },
-                            isDarkTheme = isDarkTheme,
-                            onToggleDarkTheme = { isDarkTheme = !isDarkTheme },
-                            onOpenDeviceScreen = { selectedTab = 2 },
-                            modifier = Modifier.padding(innerPadding)
-                        )
+                    } else {
+                        when (selectedTab) {
+                            0 -> DashboardScreen(
+                                userProfile = userProfile,
+                                stepGoal = stepGoal,
+                                statusText = statusText,
+                                batteryText = batteryText,
+                                heartRateText = heartRateText,
+                                spo2Text = spo2Text,
+                                pbgText = pbgText,
+                                stepsText = stepsText,
+                                sleepText = sleepText,
+                                temperatureText = temperatureText,
+                                bloodPressureText = bloodPressureText,
+                                stressText = stressText,
+                                isScanning = isScanning,
+                                isConnected = isConnected,
+                                isDarkTheme = isDarkTheme,
+                                onToggleDarkTheme = { isDarkTheme = !isDarkTheme },
+                                onScanClick = { startScan() },
+                                onReadBatteryClick = { readBattery() },
+                                onReadHeartRateClick = { readHeartRate() },
+                                onReadSpO2Click = { readSpO2() },
+                                onReadPbgClick = { readPbg() },
+                                onReadStepsClick = { readSteps() },
+                                onReadSleepClick = { readSleep() },
+                                onReadTemperatureClick = { readTemperature() },
+                                onReadBloodPressureClick = { readBloodPressure() },
+                                onReadStressClick = { readStress() },
+                                onOpenEcgClick = { showingEcgScreen = true },
+                                onOpenDeviceScreen = { selectedTab = 1 },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                            1 -> DeviceScreen(
+                                statusText = statusText,
+                                batteryText = batteryText,
+                                devices = devices,
+                                isScanning = isScanning,
+                                isConnected = isConnected,
+                                onScanClick = { startScan() },
+                                onDeviceClick = { _, mac -> connect(mac) },
+                                onReadBatteryClick = { readBattery() },
+                                onBackClick = { selectedTab = 0 },
+                                onFindDeviceClick = { /* Handled internally by dialog */ },
+                                onDisconnectClick = { disconnectRing() },
+                                onCameraClick = { launchCamera() },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                            2 -> HistoryScreen(
+                                readings = historyReadings,
+                                statusText = historyStatusText,
+                                progress = historyProgress,
+                                isSyncing = isSyncingHistory,
+                                onSyncClick = { syncHistory() },
+                                onBackClick = { selectedTab = 0 },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                            3 -> ProfileScreen(
+                                userProfile = userProfile,
+                                isConnected = isConnected,
+                                stepGoal = stepGoal,
+                                onStepGoalChange = { 
+                                    stepGoal = it 
+                                    ProfileStore.saveStepGoal(this@MainActivity, it)
+                                },
+                                onSave = { email, height, weight, age, isMale, avatarUri, avatarPreset ->
+                                    val p = UserProfile(email, height, weight, age, isMale, avatarUri, avatarPreset)
+                                    ProfileStore.save(this, p)
+                                    userProfile = p
+                                    syncProfileToRing()
+                                },
+                                isDarkTheme = isDarkTheme,
+                                onToggleDarkTheme = { isDarkTheme = !isDarkTheme },
+                                onOpenDeviceScreen = { selectedTab = 1 },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                        }
                     }
                 }
             }
@@ -252,6 +296,7 @@ class MainActivity : ComponentActivity() {
         batteryText = ""
         heartRateText = ""
         spo2Text = ""
+        pbgText = ""
         stepsText = ""
         sleepText = ""
         temperatureText = ""
@@ -260,16 +305,37 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun connect(mac: String) {
+        if (isScanning) {
+            bluetoothManager.stopScan()
+            isScanning = false
+        }
         statusText = "Connecting to $mac..."
         bluetoothManager.connectDevice(mac) { success, message ->
+            isScanning = false
             if (success) {
-                statusText = "✓ $message"
+                statusText = "Scan finished. Ring connected ✓"
                 isConnected = true
                 syncProfileToRing()
             } else {
-                statusText = "✗ $message"
+                statusText = "Scan finished. Connection failed (✗ $message)"
                 isConnected = false
             }
+        }
+    }
+
+    private fun disconnectRing() {
+        bluetoothManager.disconnectDevice()
+        isConnected = false
+        statusText = "Disconnected by user"
+        clearAllMetrics()
+    }
+
+    private fun launchCamera() {
+        try {
+            val intent = android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+            startActivity(intent)
+        } catch (e: Exception) {
+            statusText = "Camera open failed: ${e.message}"
         }
     }
 
@@ -293,35 +359,42 @@ class MainActivity : ComponentActivity() {
     private fun readBattery() {
         batteryText = "Reading battery..."
         bluetoothManager.readBattery { success, _, message ->
-            batteryText = if (success) "🔋 $message" else "✗ $message"
+            batteryText = if (success) message else "Failed: $message"
         }
     }
 
     private fun readHeartRate() {
         heartRateText = "Reading heart rate..."
         bluetoothManager.readHeartRate { success, _, message ->
-            heartRateText = if (success) "❤️ $message" else "✗ $message"
+            heartRateText = if (success) message else "Failed: $message"
         }
     }
 
     private fun readSpO2() {
         spo2Text = "Reading SpO2..."
         bluetoothManager.readSpO2 { success, _, message ->
-            spo2Text = if (success) "🩸 $message" else "✗ $message"
+            spo2Text = if (success) message else "Failed: $message"
+        }
+    }
+
+    private fun readPbg() {
+        pbgText = "Reading PBG..."
+        bluetoothManager.readPbg { success, _, message ->
+            pbgText = if (success) message else "Failed: $message"
         }
     }
 
     private fun readSteps() {
         stepsText = "Reading steps..."
         bluetoothManager.readSteps { success, _, message ->
-            stepsText = if (success) "🚶 $message" else "✗ $message"
+            stepsText = if (success) message else "Failed: $message"
         }
     }
 
     private fun readSleep() {
         sleepText = "Reading sleep..."
         bluetoothManager.readSleep { success, summary, message ->
-            sleepText = if (success) "😴 $message" else "✗ $message"
+            sleepText = if (success) message else "Failed: $message"
             Log.d(TAG, "Sleep result: success=$success summary=$summary")
         }
     }
@@ -329,7 +402,7 @@ class MainActivity : ComponentActivity() {
     private fun readTemperature() {
         temperatureText = "Reading temperature..."
         bluetoothManager.readTemperature { success, temp, message ->
-            temperatureText = if (success) "🌡️ $message" else "✗ $message"
+            temperatureText = if (success) message else "Failed: $message"
             Log.d(TAG, "Temperature result: success=$success temp=$temp")
         }
     }
@@ -337,7 +410,7 @@ class MainActivity : ComponentActivity() {
     private fun readBloodPressure() {
         bloodPressureText = "Reading blood pressure..."
         bluetoothManager.readBloodPressure { success, systolic, diastolic, message ->
-            bloodPressureText = if (success) "💓 $message" else "✗ $message"
+            bloodPressureText = if (success) message else "Failed: $message"
             Log.d(TAG, "BP result: success=$success sys=$systolic dia=$diastolic")
         }
     }
@@ -345,7 +418,7 @@ class MainActivity : ComponentActivity() {
     private fun readStress() {
         stressText = "Reading stress..."
         bluetoothManager.readStress { success, level, message ->
-            stressText = if (success) "😰 $message" else "✗ $message"
+            stressText = if (success) message else "Failed: $message"
             Log.d(TAG, "Stress result: success=$success level=$level")
         }
     }
@@ -468,6 +541,7 @@ class MainActivity : ComponentActivity() {
                 if (success) {
                     historyReadings.addAll(readings)
                     historyStatusText = "✓ $message"
+                    showSyncSuccessAnimation = true
                 } else {
                     historyStatusText = "✗ $message"
                 }
@@ -483,54 +557,66 @@ private fun BottomNavBar(
     onTabSelected: (Int) -> Unit
 ) {
     val items = listOf(
-        Triple(0, "Dashboard", "🏠"),
-        Triple(1, "ECG", "📈"),
-        Triple(2, "Device", "💍"),
-        Triple(3, "History", "📜"),
-        Triple(4, "Profile", "👤")
+        Triple(0, "Health", R.drawable.ic_health_nav),
+        Triple(1, "Device", R.drawable.ic_smart_ring),
+        Triple(2, "History", R.drawable.ic_history_nav),
+        Triple(3, "Profile", R.drawable.ic_profile_nav)
     )
 
-    Surface(
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        shadowElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            contentColor = Primary
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            shadowElevation = 10.dp,
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            items.forEach { (index, label, emoji) ->
-                val isSelected = selectedTab == index
-                NavigationBarItem(
-                    selected = isSelected,
-                    onClick = { onTabSelected(index) },
-                    icon = {
-                        Box {
-                            Text(emoji, fontSize = 20.sp)
-                            if (index == 2 && isConnected) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = StepsGreen,
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .align(Alignment.TopEnd)
-                                ) {}
+            NavigationBar(
+                containerColor = Color.Transparent,
+                contentColor = Primary,
+                tonalElevation = 0.dp
+            ) {
+                items.forEach { (index, label, iconRes) ->
+                    val isSelected = selectedTab == index
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = { onTabSelected(index) },
+                        icon = {
+                            Box {
+                                Icon(
+                                    painter = painterResource(iconRes),
+                                    contentDescription = label,
+                                    tint = if (isSelected) Primary else TextSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                if (index == 1 && isConnected) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = StepsGreen,
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .align(Alignment.TopEnd)
+                                    ) {}
+                                }
                             }
-                        }
-                    },
-                    label = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Primary else TextSecondary
+                        },
+                        label = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (isSelected) Primary else TextSecondary
+                                )
                             )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = Primary.copy(alpha = 0.15f)
                         )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = Primary.copy(alpha = 0.15f)
                     )
-                )
+                }
             }
         }
     }

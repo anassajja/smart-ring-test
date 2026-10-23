@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -95,10 +96,21 @@ fun DashboardScreen(
     onReadStressClick: () -> Unit,
     onOpenEcgClick: () -> Unit,
     onOpenDeviceScreen: () -> Unit = {},
+    bmiText: String = "",
+    metText: String = "",
+    edaText: String = "",
+    bloodComponentsText: String = "",
+    hrvText: String = "",
+    onReadHrvClick: () -> Unit = {},
+    onHealthGlanceClick: () -> Unit = {},
+    showHealthGlanceReport: Boolean = false,
+    healthGlanceReportText: String = "",
+    onDismissHealthGlanceReport: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMmol by remember { mutableStateOf(true) }
     var showAllMetricsDialog by remember { mutableStateOf(false) }
+    var showBmiDialog by remember { mutableStateOf(false) }
 
     // Auto-dismiss sync animation after 3.5s
     LaunchedEffect(showSyncSuccessAnimation) {
@@ -130,7 +142,9 @@ fun DashboardScreen(
             // 3. Featured Live Biometrics (Wide ECG Oscilloscope & Cardio Split Cards)
             FeaturedLiveBiometricsCard(
                 heartRateText = heartRateText,
+                hrvText = hrvText,
                 onReadHeartRateClick = onReadHeartRateClick,
+                onReadHrvClick = onReadHrvClick,
                 onOpenEcgClick = onOpenEcgClick
             )
 
@@ -216,17 +230,17 @@ fun DashboardScreen(
                 BentoMetricCard(
                     iconRes = R.drawable.ic_body_comp_v2,
                     title = "Body Composition",
-                    value = "-- BMI",
+                    value = bmiText.ifEmpty { "--" },
                     accentColor = Color(0xFF2DD4BF),
-                    onClick = { },
+                    onClick = { showBmiDialog = true },
                     modifier = Modifier.weight(1f)
                 )
                 BentoMetricCard(
                     iconRes = R.drawable.ic_blood_components_v2,
                     title = "Blood Components",
-                    value = "--",
+                    value = bloodComponentsText.ifEmpty { "--" },
                     accentColor = Color(0xFFE56350),
-                    onClick = { },
+                    onClick = onReadSpO2Click,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -238,17 +252,17 @@ fun DashboardScreen(
                 BentoMetricCard(
                     iconRes = R.drawable.ic_met_v2,
                     title = "MET (Activity)",
-                    value = "-- MET",
+                    value = metText.ifEmpty { "--" },
                     accentColor = Color(0xFF10B981),
-                    onClick = { },
+                    onClick = onReadStepsClick,
                     modifier = Modifier.weight(1f)
                 )
                 BentoMetricCard(
                     iconRes = R.drawable.ic_eda_v2,
                     title = "EDA Activity",
-                    value = "--",
+                    value = edaText.ifEmpty { "--" },
                     accentColor = Color(0xFF3B82F6),
-                    onClick = { },
+                    onClick = onReadStressClick,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -257,12 +271,13 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val ppgVal = heartRateText.replace(Regex("[^0-9]"), "")
                 BentoMetricCard(
                     iconRes = R.drawable.ic_ppg_v2,
                     title = "PPG Optical Sensor",
-                    value = "--",
+                    value = if (heartRateText.contains("Measuring")) "..." else if (ppgVal.isNotEmpty()) "$ppgVal bpm" else "--",
                     accentColor = HeartRed,
-                    onClick = { },
+                    onClick = onReadHeartRateClick,
                     modifier = Modifier.weight(1f)
                 )
                 BentoMetricCard(
@@ -270,7 +285,7 @@ fun DashboardScreen(
                     title = "Health Glance",
                     value = "One-Key Exam",
                     accentColor = Color(0xFF4ADE80),
-                    onClick = { },
+                    onClick = onHealthGlanceClick,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -326,6 +341,169 @@ fun DashboardScreen(
     if (showAllMetricsDialog) {
         AllMetricsExplorerDialog(onDismiss = { showAllMetricsDialog = false })
     }
+
+    if (showHealthGlanceReport) {
+        AlertDialog(
+            onDismissRequest = onDismissHealthGlanceReport,
+            title = { Text("Health Examination Report") },
+            text = {
+                Text(
+                    text = healthGlanceReportText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontSize = 13.sp
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDismissHealthGlanceReport,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    Text("Close Report")
+                }
+            }
+        )
+    }
+
+    if (showBmiDialog) {
+        BodyCompositionBmiDialog(
+            userProfile = userProfile,
+            bmiText = bmiText,
+            onDismiss = { showBmiDialog = false },
+            onEditProfileClick = {
+                showBmiDialog = false
+                onOpenDeviceScreen()
+            }
+        )
+    }
+}
+
+@Composable
+private fun BodyCompositionBmiDialog(
+    userProfile: UserProfile?,
+    bmiText: String,
+    onDismiss: () -> Unit,
+    onEditProfileClick: () -> Unit
+) {
+    val heightCm = userProfile?.height ?: 175
+    val weightKg = userProfile?.weight ?: 70
+    val isMale = userProfile?.isMale ?: true
+    val hMeters = heightCm / 100.0
+    val bmiValue = if (hMeters > 0) weightKg / (hMeters * hMeters) else 22.85
+    val bmiFormatted = "%.1f".format(bmiValue)
+
+    val (bmiCategory, categoryColor) = when {
+        bmiValue < 18.5 -> "Underweight" to Color(0xFF60A5FA)
+        bmiValue <= 24.9 -> "Normal Weight" to Color(0xFF10B981)
+        bmiValue <= 29.9 -> "Overweight" to Color(0xFFFBBF24)
+        else -> "Obese" to Color(0xFFF87171)
+    }
+
+    val bodyFatPct = if (isMale) (1.20 * bmiValue + 0.23 * (userProfile?.age ?: 25) - 16.2).coerceIn(8.0, 35.0)
+                     else (1.20 * bmiValue + 0.23 * (userProfile?.age ?: 25) - 5.4).coerceIn(12.0, 45.0)
+    val bmrKcal = if (isMale) (10 * weightKg + 6.25 * heightCm - 5 * (userProfile?.age ?: 25) + 5).toInt()
+                  else (10 * weightKg + 6.25 * heightCm - 5 * (userProfile?.age ?: 25) - 161).toInt()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_body_comp_v2),
+                    contentDescription = null,
+                    tint = Color(0xFF2DD4BF),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text("Body Composition & BMI")
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = categoryColor.copy(alpha = 0.12f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$bmiFormatted kg/m²",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = categoryColor
+                            )
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = bmiCategory.uppercase(),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = categoryColor
+                            )
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("BMI Classification Scale", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))
+                    ) {
+                        Box(modifier = Modifier.weight(18.5f).fillMaxHeight().background(Color(0xFF60A5FA)))
+                        Box(modifier = Modifier.weight(6.4f).fillMaxHeight().background(Color(0xFF10B981)))
+                        Box(modifier = Modifier.weight(5.0f).fillMaxHeight().background(Color(0xFFFBBF24)))
+                        Box(modifier = Modifier.weight(10.0f).fillMaxHeight().background(Color(0xFFF87171)))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("<18.5", fontSize = 10.sp, color = Color.Gray)
+                        Text("18.5–24.9", fontSize = 10.sp, color = Color.Gray)
+                        Text("25–29.9", fontSize = 10.sp, color = Color.Gray)
+                        Text(">30", fontSize = 10.sp, color = Color.Gray)
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    BmiDetailRow("Height", "$heightCm cm")
+                    BmiDetailRow("Weight", "$weightKg kg")
+                    BmiDetailRow("Est. Body Fat", "%.1f%%".format(bodyFatPct))
+                    BmiDetailRow("Basal Metabolic Rate (BMR)", "$bmrKcal kcal/day")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun BmiDetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+        Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground))
+    }
 }
 
 // --- Dedicated Standalone Modern Daily Steps Widget ---
@@ -336,6 +514,7 @@ private fun ModernDailyStepsWidget(
     stepGoal: Int,
     onClick: () -> Unit
 ) {
+    val isMeasuring = stepsText.contains("Measuring", ignoreCase = true)
     val stepCount = Regex("""Steps:\s*(\d+)""", RegexOption.IGNORE_CASE)
         .find(stepsText)?.groupValues?.get(1)?.toIntOrNull()
         ?: Regex("""^(\d+)""").find(stepsText.replace("🚶", "").trim())?.groupValues?.get(1)?.toIntOrNull()
@@ -473,7 +652,7 @@ private fun ModernDailyStepsWidget(
                     }
 
                     Icon(
-                        painter = painterResource(R.drawable.ic_steps),
+                        painter = painterResource(R.drawable.ic_footprints),
                         contentDescription = null,
                         tint = Color(0xFF55D1C9),
                         modifier = Modifier.size(28.dp)
@@ -489,20 +668,23 @@ private fun ModernDailyStepsWidget(
                 ) {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = "$stepCount",
+                            text = if (isMeasuring) "Measuring..." else "$stepCount",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onBackground
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontSize = if (isMeasuring) 22.sp else 32.sp
                             )
                         )
-                        Text(
-                            text = " steps",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
+                        if (!isMeasuring) {
+                            Text(
+                                text = " steps",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
                     }
 
                     Row(
@@ -822,7 +1004,9 @@ private fun WorkoutItemRow(
 @Composable
 private fun FeaturedLiveBiometricsCard(
     heartRateText: String,
+    hrvText: String,
     onReadHeartRateClick: () -> Unit,
+    onReadHrvClick: () -> Unit,
     onOpenEcgClick: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -844,10 +1028,10 @@ private fun FeaturedLiveBiometricsCard(
             CardioSplitCard(
                 iconRes = R.drawable.ic_stress,
                 title = "HRV",
-                value = "--",
-                unit = "ms",
+                value = if (hrvText.contains("Measuring")) "..." else if (hrvText.isEmpty()) "--" else hrvText,
+                unit = "",
                 accentColor = HeartRed,
-                onClick = { },
+                onClick = onReadHrvClick,
                 modifier = Modifier.weight(1f)
             )
         }

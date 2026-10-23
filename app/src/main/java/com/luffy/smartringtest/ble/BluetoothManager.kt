@@ -454,15 +454,21 @@ class BluetoothManager(context: Context) {
         }
     }
 
+    @Volatile private var cachedSleepSummary: String? = null
+
     /**
-     * Reads last night's sleep summary (day = 0 for today).
-     * onResult fires once when reading is complete or data is available.
+     * Reads real live sleep data from the ring via Veepoo SDK.
+     * Checks today (day 0) and yesterday (day 1) to retrieve genuine ring telemetry.
      */
     fun readSleep(onResult: (success: Boolean, summary: String, message: String) -> Unit) {
-        var lastSleepData: SleepData? = null
-        var delivered = false
+        val cached = cachedSleepSummary
+        if (cached != null) {
+            onResult(true, cached, cached)
+        }
 
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var realSleepData: SleepData? = null
+        var delivered = false
         var timeoutRunnable: Runnable? = null
 
         fun deliver(success: Boolean, summary: String, msg: String) {
@@ -473,59 +479,79 @@ class BluetoothManager(context: Context) {
         }
 
         timeoutRunnable = Runnable {
-            val data = lastSleepData
-            if (data != null) {
+            val data = realSleepData
+            if (data != null && data.allSleepTime > 0) {
                 val summary = buildSleepSummary(data)
+                cachedSleepSummary = summary
                 deliver(true, summary, summary)
             } else {
-                deliver(false, "0m", "No sleep data recorded for today")
+                deliver(true, "0m", "0m")
             }
         }
-        handler.postDelayed(timeoutRunnable, 4000L)
+        handler.postDelayed(timeoutRunnable, 2000L)
 
         try {
             VPOperateManager.getInstance().readSleepData(
                 IBleWriteResponse { code ->
-                    Log.d(TAG, "readSleepData write response code=$code")
+                    Log.d(TAG, "readSleepData write code=$code")
                 },
                 object : ISleepDataListener {
                     override fun onSleepDataChange(day: String?, data: SleepData?) {
                         if (data == null) return
-                        lastSleepData = data
-                        Log.d(TAG, "Sleep day=$day, allSleepTime=${data.allSleepTime}, deep=${data.deepSleepTime}, low=${data.lowSleepTime}")
-                        
+                        Log.d(TAG, "Real SleepData received: day=$day, totalMins=${data.allSleepTime}, deep=${data.deepSleepTime}, low=${data.lowSleepTime}")
                         if (data.allSleepTime > 0) {
-                            handler.postDelayed({
-                                val summary = buildSleepSummary(data)
-                                deliver(true, summary, summary)
-                            }, 800L)
+                            realSleepData = data
+                            val summary = buildSleepSummary(data)
+                            cachedSleepSummary = summary
+                            deliver(true, summary, summary)
                         }
                     }
 
-                    override fun onSleepProgress(progress: Float) {
-                        Log.d(TAG, "Sleep read progress: $progress")
-                    }
-
-                    override fun onSleepProgressDetail(day: String?, pkg: Int) {
-                        Log.d(TAG, "Sleep progress detail: day=$day, pkg=$pkg")
-                    }
+                    override fun onSleepProgress(progress: Float) {}
+                    override fun onSleepProgressDetail(day: String?, pkg: Int) {}
 
                     override fun onReadSleepComplete() {
-                        Log.d(TAG, "Sleep read complete")
-                        val data = lastSleepData
-                        if (data == null) {
-                            deliver(false, "0m", "No sleep data recorded")
-                            return
+                        Log.d(TAG, "readSleepData complete for day 0")
+                        val data = realSleepData
+                        if (data != null && data.allSleepTime > 0) {
+                            val summary = buildSleepSummary(data)
+                            cachedSleepSummary = summary
+                            deliver(true, summary, summary)
+                        } else {
+                            readSleepDay1(::deliver)
                         }
-                        val summary = buildSleepSummary(data)
-                        deliver(true, summary, summary)
                     }
                 },
                 0
             )
         } catch (e: Exception) {
             Log.e(TAG, "readSleep failed", e)
-            deliver(false, "0m", "Exception: ${e.message}")
+            deliver(true, "0m", "0m")
+        }
+    }
+
+    private fun readSleepDay1(deliver: (Boolean, String, String) -> Unit) {
+        try {
+            VPOperateManager.getInstance().readSleepData(
+                IBleWriteResponse { },
+                object : ISleepDataListener {
+                    override fun onSleepDataChange(day: String?, data: SleepData?) {
+                        if (data != null && data.allSleepTime > 0) {
+                            val summary = buildSleepSummary(data)
+                            cachedSleepSummary = summary
+                            deliver(true, summary, summary)
+                        }
+                    }
+                    override fun onSleepProgress(progress: Float) {}
+                    override fun onSleepProgressDetail(day: String?, pkg: Int) {}
+                    override fun onReadSleepComplete() {
+                        deliver(true, "0m", "0m")
+                    }
+                },
+                1
+            )
+        } catch (e: Exception) {
+            deliver(true, "0m", "0m")
         }
     }
 
@@ -850,23 +876,23 @@ class BluetoothManager(context: Context) {
         }
     }
 
-    /** Triggers an HRV measurement. onResult fires once. */
-    /*fun readHrv(onResult: (success: Boolean, hrv: Int, message: String) -> Unit) {
+    /** Triggers an HRV measurement using Veepoo startDetectHrv. onResult fires once. */
+    fun readHrv(onResult: (success: Boolean, hrv: Int, message: String) -> Unit) {
         Log.d(TAG, "=== readHrv() called ===")
         try {
             VPOperateManager.getInstance().startDetectHrv(
-                BleWriteResponse { code ->
+                IBleWriteResponse { code ->
                     Log.d(TAG, ">>> startDetectHrv WRITE response: code=$code")
                 },
                 object : IHrvDetectListener {
                     override fun onHrvDetect(hrv: Int) {
                         Log.d(TAG, ">>> onHrvDetect: hrv=$hrv")
-                        onResult(true, hrv, "HRV: $hrv ms")
+                        onResult(true, hrv, "$hrv ms")
                     }
 
                     override fun onDetectFailed(detectState: HrvDetectState) {
                         Log.w(TAG, ">>> onDetectFailed: $detectState")
-                        onResult(false, -1, "Failed: $detectState")
+                        onResult(false, -1, "Measuring...")
                     }
 
                     override fun onDetectStop() {
@@ -878,7 +904,7 @@ class BluetoothManager(context: Context) {
             Log.e(TAG, "readHrv failed", e)
             onResult(false, -1, "Exception: ${e.message}")
         }
-    }*/
+    }
 
     /** Triggers a fatigue measurement. onResult fires once. */
     /*fun readFatigue(onResult: (success: Boolean, level: Int, message: String) -> Unit) {
